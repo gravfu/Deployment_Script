@@ -7,5 +7,5 @@ RUN mvn package
 
 FROM openjdk:8-jre-alpine
 WORKDIR /app
-COPY --from=builder target/worker-jar-with-dependencies.jar ./
-CMD ["java", "-jar", "worker-jar-with-dependencies.jar"]
+COPY --from=builder target/file.jar ./
+CMD ["java", "-jar", "file.jar"]
