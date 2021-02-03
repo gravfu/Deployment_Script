@@ -1,0 +1,15 @@
+version: '3'
+services:
+    jenkins:
+        container_name: Jenkins_my_marvin
+        build: .
+        volumes: 
+            - ./jenkins_base_config.yml:/var/jenkins_home/casc_configs/jenkins.yaml
+        ports:
+            - "8080:8080"
+        environment: 
+            - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
+            - USER_ONE_PASSWORD=passhu
+            - USER_TWO_PASSWORD=passga
+            - USER_THREE_PASSWORD=passje
+            - USER_FOUR_PASSWORD=passna

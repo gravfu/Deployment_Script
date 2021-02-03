@@ -1,0 +1,107 @@
+---
+- hosts: localhost
+
+  tasks:
+    - name: add hosts group
+      add_host:
+        groups: tmp_group
+        name: 'server'
+        ansible_user: 'debian'
+        ansible_host: '{{ ip_address }}'
+
+- name: nginx install
+  hosts: tmp_group
+  become: yes
+
+  vars_prompt:
+    # On donne la possibilité de déployer la config prod, la config dev ou les deux
+    - name: production
+      prompt: Do you want to deploy prod config? (yes or no)
+      private: no
+    - name: dev
+      prompt: Do you want to deploy dev config? (yes or no)
+      private: no
+  pre_tasks:
+    - assert:
+        # On n'execute pas notre script si on n'a rien à déployer.
+        that: ((production | bool) or (dev | bool))
+        fail_msg: "You said no to the 2 configs deployements or one parameter is not right"
+  tasks:
+
+    # On installe un nginx 
+    - name: install Nginx server
+      package: 
+        name: nginx
+        state: latest
+
+    # On retire les configurations par défaut
+    - name: Remove default Nginx configuration
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/nginx/sites-enabled/default
+        - /var/www/html
+      notify: restart nginx
+
+    # On ouvre les ports
+    - name: Allow ports
+      ansible.builtin.iptables:
+        chain: INPUT
+        destination_port: "{{ item.server_port }}"
+        protocol: tcp
+        jump: ACCEPT
+      with_items:
+        - { server_port: 80, deploy: "{{production}}"}
+        - { server_port: 81, deploy: "{{dev}}"}
+      when: item.deploy | bool
+      
+    # On rajoute nos configurations nginx sur le serveur distant
+    - name: Configure Nginx
+      template:
+        src: nginx.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.server_name }}"
+      notify:
+        - restart nginx
+      with_items:
+        - { server_name: 'prod.domain.local', server_port: 80, deploy: "{{production}}"}
+        - { server_name: 'dev.domain.local', server_port: 81, deploy: "{{dev}}"}
+      when: item.deploy | bool
+
+    # On active nos configuration
+    - name: Create symlink to sites-enabled
+      file:
+        src: "/etc/nginx/sites-available/{{ item.server_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ item.server_name }}"
+        state: link
+      notify:
+        - restart nginx
+      with_items:
+        - { server_name: 'prod.domain.local', deploy: "{{production}}"}
+        - { server_name: 'dev.domain.local', deploy: "{{dev}}"}
+      when: item.deploy | bool
+    
+    # On execute les handlers maintenant pour pouvoir faire nos tests
+    - meta: flush_handlers
+
+    # On check que nginx run toujours
+    - name: Ensure nginx is running
+      ansible.builtin.service:
+        name: nginx
+        state: started
+
+    # Enfin, on fait nos tests pour vérifier que les pages sont bien accessibles
+    - name: Check pages status 200
+      uri:
+        url: "http://{{ansible_host}}:{{item.server_port}}"
+        return_content: yes
+      with_items:
+        - { server_port: 80, deploy: "{{production}}" }
+        - { server_port: 81, deploy: "{{dev}}" }
+      when: item.deploy | bool
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted

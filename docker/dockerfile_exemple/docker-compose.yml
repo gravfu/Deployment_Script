@@ -1,0 +1,75 @@
+version: '3'
+services:
+    front1:
+        container_name: front1_front
+        build: ./front1
+        ports:
+            - "5000:80"
+        networks:
+            - front1-tier
+        depends_on:
+            - redis
+        environment:
+            - REDIS_HOST=redis
+        restart: on-failure
+    redis:
+        container_name: redis_back
+        image: redis:alpine
+        command: ["redis-server", "--appendonly", "yes"]
+        networks:
+            - front1-tier
+            - back-tier
+        restart: on-failure
+    back_app:
+        container_name: back_app_back
+        build: ./back_app
+        depends_on:
+            - redis
+            - db
+        networks:
+            - back-tier
+        environment:
+            - DB_HOST=db
+            - DB_PORT=5432
+            - DB_USER=postgres
+            - DB_PASSWORD=password
+            - DB_NAME=postgres
+            - REDIS_HOST=redis
+        restart: on-failure
+    db:
+        container_name: db_back
+        image: postgres:alpine
+        environment:
+            POSTGRES_PASSWORD: password
+        volumes:
+            - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
+            - db-data:/var/lib/postgresql/data
+        networks:
+            - front2-tier
+            - back-tier
+        restart: on-failure
+    front2:
+        container_name: front2_front
+        build: ./front2
+        ports:
+            - "5001:80"
+        networks:
+            - front2-tier
+        depends_on:
+            - db
+        environment:
+            - DB_HOST=db
+            - DB_PORT=5432
+            - DB_USER=postgres
+            - DB_PASSWORD=password
+            - DB_NAME=postgres
+            - PORT=80
+        restart: on-failure
+
+networks:
+    front1-tier:
+    front2-tier:
+    back-tier:
+
+volumes:
+    db-data:
