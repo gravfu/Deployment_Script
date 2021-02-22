@@ -1,0 +1,31 @@
+---
+- name: latest Apache version installed
+  package:
+    name: apache2
+    state: latest
+
+- name: Apache enabled and running
+  service:
+    name: apache2
+    enabled: true
+    state: started
+
+- name: ensure vhost directory is present
+  file:
+    path: "/var/www/vhosts/{{ ansible_hostname }}"
+    state: directory
+
+- name: deliver html content
+  copy:
+    src: web.html
+    dest: "/var/www/vhosts/{{ ansible_hostname }}"
+
+- name: template vhost file
+  template:
+    src: vhost.conf.j2
+    dest: /etc/apache2/sites-enabled/newhost.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart_apache2
