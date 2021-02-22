@@ -1,0 +1,12 @@
+[all:vars]
+ansible_user=debian
+ansible_port=22
+
+[web]
+node1 ansible_host=xx.xx.xx.xx
+node2 ansible_host=xx.xx.xx.xx
+node3 ansible_host=xx.xx.xx.xx
+
+[ftpserver]
+node1 ansible_host=xx.xx.xx.xx
+node1 ansible_host=xx.xx.xx.xx
